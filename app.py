@@ -4,6 +4,7 @@ import auth
 import google_service
 import recommender
 from streamlit_calendar import calendar
+from datetime import datetime
 
 # --- SETUP ---
 st.set_page_config(page_title="HSG Activity Planner", layout="wide")
@@ -48,6 +49,7 @@ if page == "Home & Profil":
 elif page == "Activity Planner":
     st.title("📅 Smart Group Planner")
     
+    # Nutzt jetzt wieder das auth.py Modul
     auth_result = auth.get_google_service()
     
     user_busy_map = {} 
@@ -60,13 +62,15 @@ elif page == "Activity Planner":
         all_users_db = database.get_all_users()
         all_user_names = [u[0] for u in all_users_db]
         
+        # Events laden über das google_service Modul
         user_busy_map, stats = google_service.fetch_and_map_events(service, all_user_names)
         
         st.success(f"✅ Verbunden! {stats['total_events']} Termine geladen.")
         if stats['unassigned'] > 0:
             st.caption(f"ℹ️ {stats['unassigned']} Termine ignoriert (Kein User-Name im Titel gefunden).")
-    else:
-        st.error("⚠️ `client_secret.json` fehlt. Bitte im Projektordner ablegen.")
+    elif auth_result is None:
+        # Fehlerfall (z.B. client_secret fehlt oder Login Error) wird in auth.py schon angezeigt
+        pass
 
     st.divider()
 
@@ -143,7 +147,6 @@ elif page == "Gruppen-Kalender":
             
             for event in events:
                 cal_events.append({
-                    # RÜCKGÄNGIG GEMACHT: Titel wird wieder angezeigt
                     "title": f"{user_name}: {event.get('summary', 'Termin')}",
                     "start": event['start'].isoformat(),
                     "end": event['end'].isoformat(),
