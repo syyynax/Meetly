@@ -10,7 +10,7 @@ REDIRECT_URI = "https://projectrepo-nelb9xkappkqy6bhbwcmqwp.streamlit.app"
 def get_google_service():
     """
     Handled den Login-Flow. 
-    Liest Secrets aus 'GOOGLE_OAUTH_CLIENT.web.*'
+    Liest Secrets aus 'GOOGLE_OAUTH_CLIENT.web.*' (Ihre Struktur)
     """
     if "credentials" not in st.session_state:
         st.session_state.credentials = None
@@ -22,14 +22,14 @@ def get_google_service():
     # 2. Login Flow starten
     flow = None
     
-    # --- ANPASSUNG HIER: Wir suchen nach deinem speziellen Key ---
+    # --- ANPASSUNG: Wir suchen nach Ihrer spezifischen Secret-Struktur ---
     secrets_data = None
     
-    # Fall A: Deine Struktur (GOOGLE_OAUTH_CLIENT.web...)
+    # Fall A: Ihre Struktur (GOOGLE_OAUTH_CLIENT -> web)
     if "GOOGLE_OAUTH_CLIENT" in st.secrets and "web" in st.secrets["GOOGLE_OAUTH_CLIENT"]:
         secrets_data = st.secrets["GOOGLE_OAUTH_CLIENT"]["web"]
     
-    # Fall B: Standard Struktur (direkt [web])
+    # Fall B: Standard Struktur (direkt [web] - als Fallback)
     elif "web" in st.secrets:
         secrets_data = st.secrets["web"]
 
@@ -69,7 +69,7 @@ def get_google_service():
     
     if not flow:
         st.error("⚠️ Keine Konfiguration gefunden.")
-        st.info("Erwartet in Secrets: [GOOGLE_OAUTH_CLIENT.web] oder [web]")
+        st.info("Prüfen Sie, ob die Secrets korrekt in Streamlit eingetragen sind.")
         return None
 
     # 3. Auth Code verarbeiten
