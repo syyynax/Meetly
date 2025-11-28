@@ -41,9 +41,9 @@ def get_google_service():
                 st.query_params.clear()
                 st.rerun()
             except Exception as e:
-                st.error("Login fehlgeschlagen.")
-                st.warning(f"Google erwartet exakt diesen Redirect-Link: `{REDIRECT_URI}`")
-                st.error(f"Technische Details: {e}")
+                # Dieser Fehler passiert oft, wenn man einen alten Link benutzt
+                st.error("Login-Sitzung abgelaufen oder ungültig.")
+                st.info("Bitte laden Sie die Seite neu (F5) und klicken Sie erneut auf 'Mit Google Kalender verbinden'.")
                 return None
             
         else:
