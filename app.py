@@ -7,7 +7,7 @@ from streamlit_calendar import calendar
 from datetime import datetime
 
 # --- SETUP ---
-st.set_page_config(page_title="HSG Planner V2 (NEU)", layout="wide")
+st.set_page_config(page_title="Friends Activity Planner", layout="wide")
 database.init_db()
 
 # --- SIDEBAR ---
