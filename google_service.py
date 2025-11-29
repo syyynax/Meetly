@@ -2,13 +2,13 @@ from datetime import datetime
 
 def fetch_and_map_events(service, all_user_names):
     """
-    Holt Events aus dem Google Kalender und ordnet sie Usern zu.
-    Inklusive 'summary' für die visuelle Darstellung.
+    Holt Events ab JETZT (Zukunft) und ordnet sie zu.
+    Sammelt Diagnosedaten für die App.
     """
-    # 1. Zeitraum definieren (Heute bis in 30 Tagen)
+    # 1. Zeitraum: Ab jetzt (Standard)
     now = datetime.utcnow().isoformat() + 'Z'
     
-    # 2. API Aufruf
+    # Events holen
     events_result = service.events().list(
         calendarId='primary', 
         timeMin=now, 
@@ -19,37 +19,44 @@ def fetch_and_map_events(service, all_user_names):
     
     raw_events = events_result.get('items', [])
     
-    # 3. Mapping Logik: Welches Event gehört wem?
     user_busy_map = {name: [] for name in all_user_names}
-    unassigned_count = 0
+    
+    # Liste für die Diagnose (Das fehlte vorher!)
+    debug_unassigned = [] 
     
     for event in raw_events:
-        summary = event.get('summary', '').lower()
+        summary = event.get('summary', 'Ohne Titel').strip()
+        
+        # Nur nach 'dateTime' suchen (kein 'date' für Ganztagesevents)
         start = event['start'].get('dateTime')
         end = event['end'].get('dateTime')
         
-        # Ignoriere Ganztagesevents (haben kein dateTime)
-        if start and end: 
-            start_dt = datetime.fromisoformat(start)
-            end_dt = datetime.fromisoformat(end)
+        if start and end:
+            s_dt = datetime.fromisoformat(start)
+            e_dt = datetime.fromisoformat(end)
             
             assigned = False
+            
+            # Prüfen ob ein User-Name im Titel steckt
             for name in all_user_names:
-                # Check: Ist der Name im Titel enthalten? (Case insensitive)
-                if name.lower() in summary:
+                if name.lower() in summary.lower():
                     user_busy_map[name].append({
-                        'summary': event.get('summary', 'Termin'), # Titel speichern
-                        'start': start_dt, 
-                        'end': end_dt
+                        'summary': summary, 
+                        'start': s_dt, 
+                        'end': e_dt
                     })
                     assigned = True
             
             if not assigned:
-                unassigned_count += 1
+                debug_unassigned.append(summary)
                 
+    # Hier bauen wir das Dictionary, das die app.py erwartet
     stats = {
         "total_events": len(raw_events),
-        "unassigned": unassigned_count
+        # Berechnen, wie viele zugeordnet wurden
+        "assigned": len(raw_events) - len(debug_unassigned),
+        # Das ist der Schlüssel, der den KeyError verursacht hat:
+        "unassigned_titles": debug_unassigned 
     }
     
     return user_busy_map, stats
