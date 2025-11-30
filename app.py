@@ -144,12 +144,9 @@ elif page == "Activity Planner":
                 total_group_size = len(selected)
 
                 for idx, row in ranked_df.head(10).iterrows():
-                    # --- FIX: Sicherer Zugriff auf Scores ---
-                    # Wir prüfen, ob die Spalte existiert. Falls nicht, nehmen wir 0 als Fallback.
                     interest_score = row.get('final_interest_score', 0)
                     avail_score = row.get('availability_score', 0)
                     
-                    # Logik für Kategorie-Bestimmung
                     is_avail_perfect = (avail_score >= 0.99)
                     is_interest_high = (interest_score > 0.6)
                     is_interest_perfect = (interest_score >= 0.99)
@@ -162,7 +159,7 @@ elif page == "Activity Planner":
                         attending_list = [x.strip() for x in row['attendees'].split(',')]
                         missing_people = [p for p in selected if p not in attending_list]
 
-                    # 1. THE JACKPOT (Gold): 100% Zeit + 100% Interesse
+                    # 1. THE JACKPOT (Gold)
                     if is_avail_perfect and is_interest_perfect:
                         with st.container(border=True):
                             st.markdown(f"### 🏆 **PERFECT MATCH: {row['Title']}**")
@@ -174,11 +171,15 @@ elif page == "Activity Planner":
                             
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
                             
-                            # NEU: Prozentangaben statt Balken
-                            c3.write(f"💙 **Interest:** {int(interest_score*100)}%")
-                            c3.write(f"🕒 **Availability:** {int(avail_score*100)}%")
+                            sc1, sc2 = c3.columns(2)
+                            with sc1:
+                                st.write(f"💙 **Interest**")
+                                st.write(f"**{int(interest_score*100)}%**")
+                            with sc2:
+                                st.write(f"🕒 **Avail.**")
+                                st.write(f"**{int(avail_score*100)}%**")
                     
-                    # 2. TIME PERFECT (Grün): 100% Zeit
+                    # 2. TIME PERFECT (Grün)
                     elif is_avail_perfect:
                         with st.container(border=True):
                             st.markdown(f"### ✅ **GOOD TIMING: {row['Title']}**")
@@ -191,11 +192,15 @@ elif page == "Activity Planner":
                             if interest_score < 0.3:
                                 c2.caption("Low interest match, but timing works!")
                             
-                            # NEU: Prozentangaben statt Balken
-                            c3.write(f"💙 **Interest:** {int(interest_score*100)}%")
-                            c3.write(f"🕒 **Availability:** {int(avail_score*100)}%")
+                            sc1, sc2 = c3.columns(2)
+                            with sc1:
+                                st.write(f"💙 **Interest**")
+                                st.write(f"**{int(interest_score*100)}%**")
+                            with sc2:
+                                st.write(f"🕒 **Avail.**")
+                                st.write(f"**{int(avail_score*100)}%**")
 
-                    # 3. INTEREST PERFECT (Blau): Hohes Interesse
+                    # 3. INTEREST PERFECT (Blau)
                     elif is_interest_high:
                         with st.container(border=True):
                             st.markdown(f"### 💙 **HIGH INTEREST: {row['Title']}**")
@@ -208,27 +213,33 @@ elif page == "Activity Planner":
                             if missing_people:
                                 c2.caption(f"Busy: {', '.join(missing_people)}")
                             
-                            # NEU: Prozentangaben statt Balken
-                            c3.write(f"💙 **Interest:** {int(interest_score*100)}%")
-                            c3.write(f"🕒 **Availability:** {int(avail_score*100)}%")
+                            sc1, sc2 = c3.columns(2)
+                            with sc1:
+                                st.write(f"💙 **Interest**")
+                                st.write(f"**{int(interest_score*100)}%**")
+                            with sc2:
+                                st.write(f"🕒 **Avail.**")
+                                st.write(f"**{int(avail_score*100)}%**")
 
-                    # 4. NORMAL / COMPROMISE
+                    # 4. NORMAL
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
                             c1, c2, c3 = st.columns([1, 1, 1]) 
                             
-                            # Spalte 1
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
                             
-                            # Spalte 2
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            # Spalte 3: NEU: Prozentangaben statt Balken
-                            c3.write(f"💙 **Interest:** {int(interest_score*100)}%")
-                            c3.write(f"🕒 **Availability:** {int(avail_score*100)}%")
+                            sc1, sc2 = c3.columns(2)
+                            with sc1:
+                                st.write(f"💙 **Interest**")
+                                st.write(f"**{int(interest_score*100)}%**")
+                            with sc2:
+                                st.write(f"🕒 **Avail.**")
+                                st.write(f"**{int(avail_score*100)}%**")
                             
                             st.write("**Why this option?**")
                             if attending_count > 1:
@@ -270,6 +281,7 @@ elif page == "Group Calendar":
                     "borderColor": color
                 })
                 
+                # Prepare data for visualization module
                 visualization_data.append({
                     "summary": event.get('summary', 'Termin'),
                     "start": event['start'],
@@ -280,6 +292,7 @@ elif page == "Group Calendar":
         if cal_events:
             calendar(events=cal_events, options={"initialView": "dayGridMonth", "height": 700})
             st.markdown("---")
+            # CALL VISUALIZATION MODULE
             visualization.show_visualizations(visualization_data)
         else:
             st.info("No events found.")
