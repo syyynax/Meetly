@@ -31,10 +31,18 @@ def fetch_and_map_events(service, all_user_names):
         
         # --- SCHRITT A: Wem gehört dieser Kalender? ---
         # Wir prüfen, ob einer unserer App-User im Kalender-Namen vorkommt.
-        # Wenn ja, gehören ALLE Termine darin diesem User.
         owner_name = None
+        
+        # Bereinigen des Kalender-Namens für den Vergleich
+        cal_summary_clean = cal_summary.lower().strip()
+        
         for name in all_user_names:
-            if name.strip().lower() in cal_summary.lower():
+            # Bereinigen des User-Namens
+            user_name_clean = name.lower().strip()
+            
+            # Prüfen: Ist 'mia' in 'mia's kalender'? ODER ist 'mia muster' in 'mia'?
+            # Wir prüfen in beide Richtungen für maximale Trefferquote
+            if user_name_clean in cal_summary_clean or cal_summary_clean in user_name_clean:
                 owner_name = name
                 break # Gefunden!
         
@@ -69,7 +77,7 @@ def fetch_and_map_events(service, all_user_names):
                         
                         # --- SCHRITT B: Zuordnung ---
                         # 1. Wenn wir den Kalender-Besitzer kennen (aus Schritt A),
-                        #    gehört der Termin automatisch ihm (egal wie der Termin heißt).
+                        #    gehört der Termin automatisch ihm.
                         if owner_name:
                             user_busy_map[owner_name].append({
                                 'summary': summary, 
@@ -78,7 +86,7 @@ def fetch_and_map_events(service, all_user_names):
                             })
                             assigned = True
                         
-                        # 2. Fallback: Wenn Kalender "Allgemein" ist, suchen wir Namen im Termin-Titel
+                        # 2. Fallback: Wir suchen Namen im Termin-Titel
                         else:
                             for name in all_user_names:
                                 if name.strip().lower() in summary.lower():
@@ -90,7 +98,8 @@ def fetch_and_map_events(service, all_user_names):
                                     assigned = True
                         
                         if not assigned:
-                            debug_unassigned.append(f"{summary} (Kalender: {cal_summary})")
+                            # Debug-Info erweitert, damit wir sehen WARUM es ignoriert wurde
+                            debug_unassigned.append(f"Event: '{summary}' | Kalender: '{cal_summary}' (Kein Match mit Usern: {all_user_names})")
                     
                     except ValueError:
                         continue 
