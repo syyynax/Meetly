@@ -46,26 +46,31 @@ elif page == "Profiles":
         c1, c2, c3 = st.columns(3)
         prefs = []
         if c1.checkbox("Sport"): prefs.append("Sport")
-        if c2.checkbox("Culture"): prefs.append("Kultur")
+        if c2.checkbox("Culture"): prefs.append("Kultur") # DB values kept stable
         if c3.checkbox("Party"): prefs.append("Party")
         if c1.checkbox("Food"): prefs.append("Essen")
-        if c2.checkbox("Music"): prefs.append("Music")
+        if c2.checkbox("Education"): prefs.append("Education")
         if c3.checkbox("Outdoor"): prefs.append("Outdoor")
         
         submitted = st.form_submit_button("Save Profile")
         
         if submitted:
-            if not name.strip() or not email.strip():
-                st.error("❌ Please fill out all required fields (*).")
+            if not name.strip():
+                st.error("❌ Please enter a name.")
+            elif not email.strip():
+                st.error("❌ Please enter an email address.")
             else:
                 success, operation = database.add_user(name, email, prefs)
                 if success:
-                    st.success(f"Profile saved successfully ({operation})!")
+                    if operation == "updated":
+                        st.success(f"Profile for {name} updated!")
+                    else:
+                        st.success(f"New profile created for {name}!")
                 else: 
                     st.error(f"Error: {operation}")
 
     st.divider()
-    st.subheader("Current Users")
+    st.subheader("Current Users in Database")
     users = database.get_all_users()
     if not users:
         st.warning("No users created yet.")
@@ -90,7 +95,7 @@ elif page == "Activity Planner":
         all_users_db = database.get_all_users()
         all_user_names = [u[0] for u in all_users_db]
         
-        # Events laden
+        # Fetch Events
         user_busy_map, stats = google_service.fetch_and_map_events(service, all_user_names)
         
         with st.expander("🔍 Diagnostic: Events", expanded=False):
@@ -104,12 +109,11 @@ elif page == "Activity Planner":
     if not all_users_data:
         st.warning("Please create profiles first.")
     else:
-        # Default: Select ALL users
         user_names = [u[0] for u in all_users_data]
         selected = st.multiselect("Who is planning?", user_names, default=user_names)
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
-        # Session State
+        # Session State for Results
         if 'ranked_results' not in st.session_state:
             st.session_state.ranked_results = None
 
@@ -123,7 +127,7 @@ elif page == "Activity Planner":
                 user_busy_map, 
                 selected, 
                 user_prefs_dict,
-                min_attendees=1 # Zeige auch Events, wo nur 1 Person kann, wenn es gut passt
+                min_attendees=1
             )
 
         if st.session_state.ranked_results is not None:
@@ -135,33 +139,33 @@ elif page == "Activity Planner":
                     st.session_state.ranked_results = None
                     st.rerun()
                 
-                # --- NEW DISPLAY LOGIC ---
                 st.markdown("---")
                 
                 total_group_size = len(selected)
 
                 for idx, row in ranked_df.head(10).iterrows():
-                    # Calculate Stats
                     match_score = row['match_score']
                     attending_count = row['attendee_count']
                     is_all_attending = (attending_count == total_group_size)
                     is_high_match = (match_score > 0.6) 
                     
-                    # Missing People Logic
+                    # --- ZEITFORMATIERUNG ANPASSEN ---
+                    # Zeigt jetzt: "Monday, 14:00 - 16:00"
+                    time_str = f"{row['Start'].strftime('%A, %H:%M')} - {row['End'].strftime('%H:%M')}"
+
                     missing_people = []
                     if not is_all_attending:
-                        # Wir vergleichen alle ausgewählten mit denen, die im String stehen
                         attending_list = [x.strip() for x in row['attendees'].split(',')]
                         missing_people = [p for p in selected if p not in attending_list]
 
-                    # 1. THE JACKPOT: Everyone free + High Interest
+                    # 1. THE JACKPOT
                     if is_all_attending and is_high_match:
                         with st.container(border=True):
                             st.markdown(f"### 🏆 **PERFECT MATCH: {row['Title']}**")
                             st.info("✨ Everyone is free AND it matches your interests perfectly!")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{row['Start'].strftime('%A, %H:%M')}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             c1.caption(f"Category: {row['Category']}")
                             
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
@@ -169,14 +173,14 @@ elif page == "Activity Planner":
                             
                             c3.metric("Availability", "100%", "All available")
                     
-                    # 2. TIME PERFECT: Everyone free (but maybe average interest)
+                    # 2. TIME PERFECT
                     elif is_all_attending:
                         with st.container(border=True):
                             st.markdown(f"### ✅ **GOOD TIMING: {row['Title']}**")
                             st.success("🕒 Everyone is free at this time.")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{row['Start'].strftime('%A, %H:%M')}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
                             if match_score < 0.3:
@@ -186,14 +190,14 @@ elif page == "Activity Planner":
                             
                             c3.metric("Availability", "100%", "All available")
 
-                    # 3. INTEREST PERFECT: High Interest (but not everyone free)
+                    # 3. INTEREST PERFECT
                     elif is_high_match:
                         with st.container(border=True):
                             st.markdown(f"### 💙 **HIGH INTEREST: {row['Title']}**")
                             st.warning(f"⚠️ Only **{attending_count}/{total_group_size}** people are free, but they will love it!")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{row['Start'].strftime('%A, %H:%M')}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             
                             c2.write(f"**Who can go:** {row['attendees']}")
                             if missing_people:
@@ -201,18 +205,17 @@ elif page == "Activity Planner":
                             
                             c3.metric("Match Score", f"{int(match_score*100)}%", "Very High")
 
-                    # 4. NORMAL / COMPROMISE: Standard suggestion
+                    # 4. NORMAL
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl) - {int(match_score*100)}% Match"):
                             c1, c2 = st.columns([1, 1])
                             
-                            c1.write(f"📅 **{row['Start'].strftime('%d.%m. %H:%M')}** | {row['Category']}")
+                            c1.write(f"📅 **{time_str}** | {row['Category']}") # Neue Zeit
                             c1.write(f"**Attendees:** {row['attendees']}")
                             
                             if missing_people:
                                 c1.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            # Hier zeigen wir explizit, warum es vorgeschlagen wird
                             c2.write("**Why this option?**")
                             if attending_count > 1:
                                 c2.info(f"It works for {attending_count} people.")
@@ -230,7 +233,6 @@ elif page == "Activity Planner":
 elif page == "Group Calendar":
     st.title("🗓️ Group Calendar Overview")
     auth_result = auth.get_google_service()
-    
     if auth_result and not isinstance(auth_result, str):
         service = auth_result
         all_users_db = database.get_all_users()
