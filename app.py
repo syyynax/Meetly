@@ -49,7 +49,7 @@ elif page == "Profiles":
         if c2.checkbox("Culture"): prefs.append("Kultur")
         if c3.checkbox("Party"): prefs.append("Party")
         if c1.checkbox("Food"): prefs.append("Essen")
-        if c2.checkbox("Education"): prefs.append("Education")
+        if c2.checkbox("Musiv"): prefs.append("Music")
         if c3.checkbox("Outdoor"): prefs.append("Outdoor")
         
         submitted = st.form_submit_button("Save Profile")
