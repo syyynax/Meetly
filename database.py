@@ -20,7 +20,6 @@ def init_db():
     """)
     
     # 2. Saved Events Table (WITH DETAILS)
-    # KORREKTUR: Komma vor 'location TEXT' hinzugefügt
     c.execute("""
         CREATE TABLE IF NOT EXISTS saved_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,8 +101,7 @@ def add_saved_event(title, start, end, color, category, attendees, match_score, 
         c.execute("SELECT id FROM saved_events WHERE title = ? AND start_time = ?", (title, start))
         if c.fetchone():
             return False 
-            
-        # KORREKTUR: Hier waren nur 7 Fragezeichen, es müssen aber 8 sein!
+        
         c.execute("""
             INSERT INTO saved_events (title, start_time, end_time, color, category, attendees, match_score, location)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -112,7 +110,7 @@ def add_saved_event(title, start, end, color, category, attendees, match_score, 
         conn.commit()
         return True
     except Exception as e:
-        print(f"DB Error: {e}") # Diesen Fehler hast du vorher nicht gesehen
+        print(f"DB Error: {e}") 
         return False
     finally:
         conn.close()
@@ -122,7 +120,6 @@ def get_saved_events():
     conn.row_factory = sqlite3.Row 
     c = conn.cursor()
     
-    # Fehler abfangen, falls Tabelle noch alt ist
     try:
         c.execute("SELECT * FROM saved_events")
     except Exception:
@@ -130,7 +127,6 @@ def get_saved_events():
 
     rows = []
     for row in c.fetchall():
-        # Fallback, falls 'location' in einer alten Zeile leer ist
         loc = row['location'] if 'location' in row.keys() else "TBD"
 
         event_dict = {
@@ -154,7 +150,7 @@ def get_saved_events():
 def clear_saved_events():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DROP TABLE IF EXISTS saved_events") # Besser DROP nutzen um Struktur neu zu laden
+    c.execute("DROP TABLE IF EXISTS saved_events") 
     conn.commit()
     conn.close()
     init_db()
