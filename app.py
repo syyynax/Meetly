@@ -12,14 +12,27 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Meetly", page_icon="👋", layout="wide")
 database.init_db()
 
-# --- GLOBAL SESSION STATE ---
-# Initialisiere dies GANZ AM ANFANG, damit es überall verfügbar ist
+# --- SESSION STATE INITIALISIERUNG ---
+# Wir brauchen einen Speicher für die ausgewählten Events
 if 'selected_events' not in st.session_state:
     st.session_state.selected_events = []
 
+# --- NAVIGATION LOGIK (NEU) ---
+# Wir prüfen, ob wir von Google kommen (Code in URL) -> Dann ab zum Activity Planner
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "Start"
+
+if st.query_params.get("code"):
+    st.session_state.nav_page = "Activity Planner"
+
 # --- SIDEBAR ---
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Start", "Profiles", "Activity Planner", "Group Calendar"])
+# Wir nutzen den 'key' Parameter, um die Auswahl mit dem Session State zu verbinden
+page = st.sidebar.radio(
+    "Go to", 
+    ["Start", "Profiles", "Activity Planner", "Group Calendar"],
+    key="nav_page"
+)
 
 # --- PAGE 0: START PAGE ---
 if page == "Start":
