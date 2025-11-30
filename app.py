@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd  # WICHTIG: Pandas importieren!
+import pandas as pd
 import database
 import auth
 import google_service
@@ -12,13 +12,10 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Meetly", page_icon="👋", layout="wide")
 database.init_db()
 
-# --- SESSION STATE INITIALISIERUNG ---
-# Wir brauchen einen Speicher für die ausgewählten Events
-if 'selected_events' not in st.session_state:
-    st.session_state.selected_events = []
+if 'ranked_results' not in st.session_state:
+    st.session_state.ranked_results = None
 
-# --- NAVIGATION LOGIK (NEU) ---
-# Wir prüfen, ob wir von Google kommen (Code in URL) -> Dann ab zum Activity Planner
+# --- NAVIGATION LOGIK ---
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Start"
 
@@ -27,7 +24,6 @@ if st.query_params.get("code"):
 
 # --- SIDEBAR ---
 st.sidebar.title("Navigation")
-# Wir nutzen den 'key' Parameter, um die Auswahl mit dem Session State zu verbinden
 page = st.sidebar.radio(
     "Go to", 
     ["Start", "Profiles", "Activity Planner", "Group Calendar"],
@@ -128,22 +124,16 @@ elif page == "Activity Planner":
     if not all_users_data:
         st.warning("Please create profiles first.")
     else:
-        # Hier ist die neue Datumsauswahl!
         today = datetime.now().date()
-        
         col1, col2 = st.columns(2)
         with col1:
             user_names = [u[0] for u in all_users_data]
             selected = st.multiselect("Who is planning?", user_names, default=user_names)
         
         with col2:
-            # Wähle ein Datum, wir berechnen die Woche darum herum
             selected_date = st.date_input("Plan for which week?", value=today)
-            
-            # Berechne Montag (Start) und Sonntag (Ende) der ausgewählten Woche
             start_of_week = selected_date - timedelta(days=selected_date.weekday())
             end_of_week = start_of_week + timedelta(days=6)
-            
             st.caption(f"📅 Showing events for: **{start_of_week.strftime('%d.%m.%Y')} - {end_of_week.strftime('%d.%m.%Y')}**")
 
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
@@ -153,23 +143,17 @@ elif page == "Activity Planner":
             st.session_state.ranked_results = None
 
         if st.button("🚀 Start Analysis") and selected:
-            # 1. Alle Events laden (30 Tage)
             events_df = recommender.load_local_events("events.csv") 
             if events_df.empty:
                  events_df = recommender.load_local_events("events.xlsx")
             
-            # 2. FILTERN: Nur Events der ausgewählten Woche behalten
             if not events_df.empty:
-                # Sicherstellen, dass 'Start' ein Datetime-Objekt ist
                 events_df['Start'] = pd.to_datetime(events_df['Start'])
-                
-                # Filter anwenden
                 mask = (events_df['Start'].dt.date >= start_of_week) & (events_df['Start'].dt.date <= end_of_week)
                 events_df_filtered = events_df.loc[mask].copy()
             else:
                 events_df_filtered = events_df
 
-            # 3. Nur die gefilterten Events an den Recommender geben
             st.session_state.ranked_results = recommender.find_best_slots_for_group(
                 events_df_filtered, 
                 user_busy_map, 
@@ -192,7 +176,6 @@ elif page == "Activity Planner":
                 total_group_size = len(selected)
 
                 for idx, row in ranked_df.head(10).iterrows():
-                    # Werte sicher abrufen
                     interest_score = row.get('final_interest_score', 0)
                     avail_score = row.get('availability_score', 0)
                     
@@ -207,6 +190,19 @@ elif page == "Activity Planner":
                     if not is_avail_perfect:
                         attending_list = [x.strip() for x in row['attendees'].split(',')]
                         missing_people = [p for p in selected if p not in attending_list]
+
+                    # Helper to save to DB
+                    def save_to_db_callback(r, col):
+                        saved = database.add_saved_event(
+                            f"{r['Title']}",
+                            r['Start'].strftime("%Y-%m-%dT%H:%M:%S"),
+                            r['End'].strftime("%Y-%m-%dT%H:%M:%S"),
+                            col
+                        )
+                        if saved:
+                            st.toast(f"Saved '{r['Title']}' permanently!")
+                        else:
+                            st.toast(f"'{r['Title']}' is already saved.")
 
                     # 1. THE JACKPOT (Gold)
                     if is_avail_perfect and is_interest_perfect:
@@ -227,17 +223,8 @@ elif page == "Activity Planner":
                                 st.write(f"🕒 **Avail.**")
                                 st.write(f"**{int(avail_score*100)}%**")
                             
-                            # BUTTON TO ADD TO CALENDAR
                             if st.button(f"Add '{row['Title']}' to Calendar", key=f"btn_{idx}"):
-                                new_event = {
-                                    "title": f"🎉 {row['Title']}",
-                                    "start": row['Start'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "end": row['End'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "backgroundColor": "#FFD700", # Gold
-                                    "borderColor": "#FFD700"
-                                }
-                                st.session_state.selected_events.append(new_event)
-                                st.toast(f"Added {row['Title']} to Group Calendar!")
+                                save_to_db_callback(row, "#FFD700")
                     
                     # 2. TIME PERFECT (Grün)
                     elif is_avail_perfect:
@@ -260,15 +247,7 @@ elif page == "Activity Planner":
                                 st.write(f"**{int(avail_score*100)}%**")
                             
                             if st.button(f"Add '{row['Title']}' to Calendar", key=f"btn_{idx}"):
-                                new_event = {
-                                    "title": f"✅ {row['Title']}",
-                                    "start": row['Start'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "end": row['End'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "backgroundColor": "#28a745", # Grün
-                                    "borderColor": "#28a745"
-                                }
-                                st.session_state.selected_events.append(new_event)
-                                st.toast(f"Added {row['Title']} to Group Calendar!")
+                                save_to_db_callback(row, "#28a745")
 
                     # 3. INTEREST PERFECT (Blau)
                     elif is_interest_high:
@@ -291,24 +270,14 @@ elif page == "Activity Planner":
                                 st.write(f"**{int(avail_score*100)}%**")
                             
                             if st.button(f"Add '{row['Title']}' to Calendar", key=f"btn_{idx}"):
-                                new_event = {
-                                    "title": f"💙 {row['Title']}",
-                                    "start": row['Start'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "end": row['End'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "backgroundColor": "#1E90FF", # Blau
-                                    "borderColor": "#1E90FF"
-                                }
-                                st.session_state.selected_events.append(new_event)
-                                st.toast(f"Added {row['Title']} to Group Calendar!")
+                                save_to_db_callback(row, "#1E90FF")
 
                     # 4. NORMAL
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
                             c1, c2, c3 = st.columns([1, 1, 1]) 
-                            
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
-                            
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
@@ -333,15 +302,7 @@ elif page == "Activity Planner":
                                 st.write(f"_{row['Description']}_")
                             
                             if st.button(f"Add to Calendar", key=f"btn_{idx}"):
-                                new_event = {
-                                    "title": f"📌 {row['Title']}",
-                                    "start": row['Start'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "end": row['End'].strftime("%Y-%m-%dT%H:%M:%S"),
-                                    "backgroundColor": "#6c757d", # Grau
-                                    "borderColor": "#6c757d"
-                                }
-                                st.session_state.selected_events.append(new_event)
-                                st.toast(f"Added {row['Title']} to Group Calendar!")
+                                save_to_db_callback(row, "#6c757d")
             else:
                 st.warning("No suitable events found.")
 
@@ -379,13 +340,15 @@ elif page == "Group Calendar":
                     "person": user_name 
                 })
         
-        # HIER: Die ausgewählten Events aus dem Activity Planner hinzufügen!
-        if 'selected_events' in st.session_state and st.session_state.selected_events:
-            cal_events.extend(st.session_state.selected_events)
-            st.success(f"Showing {len(st.session_state.selected_events)} selected group activities!")
+        # HIER: Gespeicherte Events aus der DB laden
+        saved_events = database.get_saved_events()
+        
+        if saved_events:
+            cal_events.extend(saved_events)
+            st.success(f"Loaded {len(saved_events)} saved group activities from Database!")
             
-            if st.button("Clear selected activities"):
-                st.session_state.selected_events = []
+            if st.button("Clear ALL saved activities"):
+                database.clear_saved_events()
                 st.rerun()
         
         if cal_events:
