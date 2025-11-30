@@ -1,5 +1,5 @@
 import streamlit as st
-import panda as pd
+import pandas as pd  # WICHTIG: Pandas importieren!
 import database
 import auth
 import google_service
@@ -110,22 +110,23 @@ elif page == "Activity Planner":
     if not all_users_data:
         st.warning("Please create profiles first.")
     else:
-        # Hier können wir die Woche auswählen
+        # Hier ist die neue Datumsauswahl!
         today = datetime.now().date()
-        week_start = today - timedelta(days=today.weekday()) # Start der aktuellen Woche (Montag)
-        week_end = week_start + timedelta(days=6) # Ende der aktuellen Woche (Sonntag)
-
+        
         col1, col2 = st.columns(2)
         with col1:
             user_names = [u[0] for u in all_users_data]
             selected = st.multiselect("Who is planning?", user_names, default=user_names)
+        
         with col2:
-            # Date Input für die Wochenauswahl
-            selected_date = st.date_input("Select a week to plan for", value=today)
-            # Berechne den Start und das Ende der ausgewählten Woche
-            selected_week_start = selected_date - timedelta(days=selected_date.weekday())
-            selected_week_end = selected_week_start + timedelta(days=6)
-            st.caption(f"Planning for week: {selected_week_start.strftime('%d.%m.%Y')} - {selected_week_end.strftime('%d.%m.%Y')}")
+            # Wähle ein Datum, wir berechnen die Woche darum herum
+            selected_date = st.date_input("Plan for which week?", value=today)
+            
+            # Berechne Montag (Start) und Sonntag (Ende) der ausgewählten Woche
+            start_of_week = selected_date - timedelta(days=selected_date.weekday())
+            end_of_week = start_of_week + timedelta(days=6)
+            
+            st.caption(f"📅 Showing events for: **{start_of_week.strftime('%d.%m.%Y')} - {end_of_week.strftime('%d.%m.%Y')}**")
 
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
@@ -134,22 +135,23 @@ elif page == "Activity Planner":
             st.session_state.ranked_results = None
 
         if st.button("🚀 Start Analysis") and selected:
+            # 1. Alle Events laden (30 Tage)
             events_df = recommender.load_local_events("events.csv") 
             if events_df.empty:
                  events_df = recommender.load_local_events("events.xlsx")
             
-            # Filtere Events basierend auf der ausgewählten Woche
-            # Wir nehmen nur Events, die in der ausgewählten Woche STARTEN
+            # 2. FILTERN: Nur Events der ausgewählten Woche behalten
             if not events_df.empty:
-                # Stelle sicher, dass 'Start' ein datetime-Objekt ist (sollte es schon sein, aber sicher ist sicher)
+                # Sicherstellen, dass 'Start' ein Datetime-Objekt ist
                 events_df['Start'] = pd.to_datetime(events_df['Start'])
                 
-                # Filter-Maske erstellen
-                mask = (events_df['Start'].dt.date >= selected_week_start) & (events_df['Start'].dt.date <= selected_week_end)
-                events_df_filtered = events_df.loc[mask].copy() # Kopie erstellen, um Warnungen zu vermeiden
+                # Filter anwenden
+                mask = (events_df['Start'].dt.date >= start_of_week) & (events_df['Start'].dt.date <= end_of_week)
+                events_df_filtered = events_df.loc[mask].copy()
             else:
-                events_df_filtered = events_df # Leeres DataFrame
+                events_df_filtered = events_df
 
+            # 3. Nur die gefilterten Events an den Recommender geben
             st.session_state.ranked_results = recommender.find_best_slots_for_group(
                 events_df_filtered, 
                 user_busy_map, 
@@ -172,12 +174,10 @@ elif page == "Activity Planner":
                 total_group_size = len(selected)
 
                 for idx, row in ranked_df.head(10).iterrows():
-                    # --- FIX: Sicherer Zugriff auf Scores ---
-                    # Wir prüfen, ob die Spalte existiert. Falls nicht, nehmen wir 0 als Fallback.
+                    # Werte sicher abrufen
                     interest_score = row.get('final_interest_score', 0)
                     avail_score = row.get('availability_score', 0)
                     
-                    # Logik für Kategorie-Bestimmung
                     is_avail_perfect = (avail_score >= 0.99)
                     is_interest_high = (interest_score > 0.6)
                     is_interest_perfect = (interest_score >= 0.99)
@@ -190,7 +190,7 @@ elif page == "Activity Planner":
                         attending_list = [x.strip() for x in row['attendees'].split(',')]
                         missing_people = [p for p in selected if p not in attending_list]
 
-                    # 1. THE JACKPOT (Gold): 100% Zeit + 100% Interesse
+                    # 1. THE JACKPOT (Gold)
                     if is_avail_perfect and is_interest_perfect:
                         with st.container(border=True):
                             st.markdown(f"### 🏆 **PERFECT MATCH: {row['Title']}**")
@@ -199,10 +199,8 @@ elif page == "Activity Planner":
                             c1, c2, c3 = st.columns([1, 2, 1])
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
-                            
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
                             
-                            # NEU: Prozentangaben statt Balken
                             sc1, sc2 = c3.columns(2)
                             with sc1:
                                 st.write(f"💙 **Interest**")
@@ -211,7 +209,7 @@ elif page == "Activity Planner":
                                 st.write(f"🕒 **Avail.**")
                                 st.write(f"**{int(avail_score*100)}%**")
                     
-                    # 2. TIME PERFECT (Grün): 100% Zeit
+                    # 2. TIME PERFECT (Grün)
                     elif is_avail_perfect:
                         with st.container(border=True):
                             st.markdown(f"### ✅ **GOOD TIMING: {row['Title']}**")
@@ -219,12 +217,10 @@ elif page == "Activity Planner":
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
                             c1.write(f"📅 **{time_str}**")
-                            
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
                             if interest_score < 0.3:
                                 c2.caption("Low interest match, but timing works!")
                             
-                            # NEU: Prozentangaben statt Balken
                             sc1, sc2 = c3.columns(2)
                             with sc1:
                                 st.write(f"💙 **Interest**")
@@ -233,7 +229,7 @@ elif page == "Activity Planner":
                                 st.write(f"🕒 **Avail.**")
                                 st.write(f"**{int(avail_score*100)}%**")
 
-                    # 3. INTEREST PERFECT (Blau): Hohes Interesse
+                    # 3. INTEREST PERFECT (Blau)
                     elif is_interest_high:
                         with st.container(border=True):
                             st.markdown(f"### 💙 **HIGH INTEREST: {row['Title']}**")
@@ -241,12 +237,10 @@ elif page == "Activity Planner":
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
                             c1.write(f"📅 **{time_str}**")
-                            
                             c2.write(f"**Who can go:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"Busy: {', '.join(missing_people)}")
                             
-                            # NEU: Prozentangaben statt Balken
                             sc1, sc2 = c3.columns(2)
                             with sc1:
                                 st.write(f"💙 **Interest**")
@@ -255,21 +249,16 @@ elif page == "Activity Planner":
                                 st.write(f"🕒 **Avail.**")
                                 st.write(f"**{int(avail_score*100)}%**")
 
-                    # 4. NORMAL / COMPROMISE
+                    # 4. NORMAL
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
                             c1, c2, c3 = st.columns([1, 1, 1]) 
-                            
-                            # Spalte 1
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
-                            
-                            # Spalte 2
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            # Spalte 3: NEU: Prozentangaben statt Balken
                             sc1, sc2 = c3.columns(2)
                             with sc1:
                                 st.write(f"💙 **Interest**")
