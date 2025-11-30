@@ -18,7 +18,7 @@ def show_start_page():
     and guiding them on how to get started. It improves the user experience (UX).
     """
     # We use HTML inside markdown to center the text for better visual appeal.
-    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly!</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly! ✨</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>The App to finally bring your friends together.</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
@@ -60,10 +60,10 @@ def show_profiles_page():
         # Collecting preferences using checkboxes.
         # Note: The values appended (e.g., "Kultur") match the categories in our events database.
         if c1.checkbox("Sport"): prefs.append("Sport")
-        if c2.checkbox("Culture"): prefs.append("Kultur")
+        if c2.checkbox("Culture"): prefs.append("Cultur")
         if c3.checkbox("Party"): prefs.append("Party")
-        if c1.checkbox("Food"): prefs.append("Essen")
-        if c2.checkbox("Education"): prefs.append("Education")
+        if c1.checkbox("Food"): prefs.append("Food")
+        if c2.checkbox("Music"): prefs.append("Music")
         if c3.checkbox("Outdoor"): prefs.append("Outdoor")
         
         submitted = st.form_submit_button("Save Profile")
@@ -198,7 +198,7 @@ def show_activity_planner():
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
         # 4. Run Analysis
-        if st.button("🚀 Start Analysis") and selected:
+        if st.button("🚀 Search Events") and selected:
             # Load local events database
             events_df = recommender.load_local_events("events.csv") 
             if events_df.empty:
@@ -226,7 +226,7 @@ def show_activity_planner():
             ranked_df = st.session_state.ranked_results
             
             if not ranked_df.empty:
-                st.subheader("🎯 Top Suggestions")
+                st.subheader("🎯 Event Suggestions")
                 if st.button("Clear Results"):
                     st.session_state.ranked_results = None
                     st.rerun()
