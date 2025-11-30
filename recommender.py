@@ -33,25 +33,18 @@ def load_local_events(file_path="events.xlsx"):
                         s_val = row['start_time']
                         e_val = row['end_time']
 
-                        # Robuste Zeit-Konvertierung
                         if isinstance(s_val, time): s_time = s_val
                         else: s_time = pd.to_datetime(str(s_val)).time()
 
                         if isinstance(e_val, time): e_time = e_val
                         else: 
-                            # Manchmal wird 00:00:00 als String oder NaT gelesen
-                            try:
-                                e_time = pd.to_datetime(str(e_val)).time()
-                            except:
-                                # Fallback: Wenn Ende fehlt oder 00:00 ist
-                                e_time = time(0, 0)
+                            try: e_time = pd.to_datetime(str(e_val)).time()
+                            except: e_time = time(0, 0)
                         
                         start_dt = datetime.combine(current_date, s_time)
                         
-                        # Nacht-Event Logik (z.B. 22:00 bis 02:00)
                         if e_time <= s_time and e_time != time(0,0):
                              end_dt = datetime.combine(current_date + timedelta(days=1), e_time)
-                        # Sonderfall: Ende genau um 00:00 Uhr (Mitternacht des nächsten Tages)
                         elif e_time == time(0,0):
                              end_dt = datetime.combine(current_date + timedelta(days=1), e_time)
                         else:
@@ -69,7 +62,6 @@ def load_local_events(file_path="events.xlsx"):
                             'Description': f"Ort: {row.get('location', 'Unbekannt')}"
                         })
                     except Exception as e:
-                        # print(f"Skipping row: {e}")
                         continue
                         
             return pd.DataFrame(generated_events)
@@ -110,31 +102,42 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
             if check_user_availability(event['Start'], event['End'], busy_slots):
                 attendees.append(user)
         
-        # WICHTIG: Wir fügen das Event hinzu, wenn GENUG Leute Zeit haben (min_attendees)
-        # Standard ist min_attendees=1, damit wir sehen können, ob wenigstens einer kann.
         if len(attendees) >= min_attendees:
             
             # 2. Welche Interessen passen? (Detail-Analyse)
             attendee_prefs_list = []
             matched_tags = set()
             event_text = (str(event.get('Category', '')) + " " + str(event.get('Description', '')) + " " + str(event['Title'])).lower()
-            direct_hit = False 
+            
+            # Zähler: Wie viele Teilnehmer finden das Event gut?
+            happy_attendees_count = 0
             
             for attendee in attendees:
                 u_prefs = all_user_prefs.get(attendee, "")
                 attendee_prefs_list.append(u_prefs)
+                
+                user_is_happy = False
                 for pref in u_prefs.split(','):
                     clean_pref = pref.strip()
                     if clean_pref and clean_pref.lower() in event_text:
                         matched_tags.add(clean_pref)
-                        direct_hit = True
+                        user_is_happy = True
+                
+                if user_is_happy:
+                    happy_attendees_count += 1
+
+            # Berechne die Quote: Wie viel Prozent der Anwesenden mögen das Event?
+            # Beispiel: 1 von 2 Personen = 0.5 (50%)
+            match_ratio = happy_attendees_count / len(attendees) if attendees else 0
 
             event_entry = event.copy()
             event_entry['attendees'] = ", ".join(attendees)
             event_entry['attendee_count'] = len(attendees)
             event_entry['group_prefs_text'] = " ".join(attendee_prefs_list)
             event_entry['matched_tags'] = ", ".join(matched_tags) if matched_tags else "General"
-            event_entry['is_direct_hit'] = direct_hit 
+            
+            # Wir speichern diese Quote
+            event_entry['manual_match_ratio'] = match_ratio
             
             results.append(event_entry)
 
@@ -153,7 +156,7 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
     try:
         tfidf = TfidfVectorizer(stop_words='english')
         if len(result_df) < 2:
-             result_df['match_score'] = 1.0 if result_df.iloc[0]['is_direct_hit'] else 0.5
+             result_df['match_score'] = result_df['manual_match_ratio']
         else:
             tfidf_matrix = tfidf.fit_transform(result_df['event_features'])
             scores = []
@@ -161,11 +164,18 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
                 user_vector = tfidf.transform([row['group_prefs_text']])
                 sim = cosine_similarity(user_vector, tfidf_matrix[idx])
                 
-                raw_score = sim[0][0]
-                if row['is_direct_hit']:
-                    final_score = 1.0
+                ml_score = sim[0][0]
+                
+                # --- LOGIK UPDATE ---
+                # Wenn wir direkte Keyword-Treffer haben (z.B. "Kultur" im Text),
+                # vertrauen wir unserer manuellen Quote (match_ratio).
+                # Wenn wir KEINE direkten Treffer haben (match_ratio == 0),
+                # nehmen wir den ML-Score, falls er "unscharfe" Ähnlichkeiten gefunden hat.
+                
+                if row['manual_match_ratio'] > 0:
+                    final_score = row['manual_match_ratio']
                 else:
-                    final_score = raw_score
+                    final_score = ml_score
                 
                 scores.append(final_score)
                 
