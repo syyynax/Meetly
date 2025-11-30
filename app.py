@@ -205,24 +205,35 @@ elif page == "Activity Planner":
                             
                             c3.metric("Match Score", f"{int(match_score*100)}%", "Very High")
 
-                    # 4. NORMAL
+                    # 4. NORMAL / COMPROMISE: Standard suggestion
                     else:
-                        with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl) - {int(match_score*100)}% Match"):
-                            c1, c2 = st.columns([1, 1])
+                        with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
+                            c1, c2, c3 = st.columns([1, 1, 1]) # Jetzt 3 Spalten für mehr Infos
                             
-                            c1.write(f"📅 **{time_str}** | {row['Category']}") # Neue Zeit
-                            c1.write(f"**Attendees:** {row['attendees']}")
+                            # Spalte 1: Zeit & Kategorie
+                            c1.write(f"📅 **{time_str}**")
+                            c1.caption(f"Category: {row['Category']}")
                             
+                            # Spalte 2: Teilnehmer & Fehlende
+                            c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
-                                c1.caption(f"❌ Missing: {', '.join(missing_people)}")
+                                c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            c2.write("**Why this option?**")
-                            if attending_count > 1:
-                                c2.info(f"It works for {attending_count} people.")
-                            elif row['matched_tags'] != "General":
-                                c2.info(f"It matches interest: '{row['matched_tags']}'")
+                            # Spalte 3 (NEU): Match Score visualisieren!
+                            c3.metric("Match Score", f"{int(match_score*100)}%")
+                            if row['matched_tags'] != "General":
+                                c3.caption(f"Matches: {row['matched_tags']}")
                             else:
-                                c2.write("It's an available option to consider.")
+                                c3.caption("No specific interest match")
+                            
+                            # Zusätzliche Infos unten drunter
+                            st.write("**Why this option?**")
+                            if attending_count > 1:
+                                st.info(f"It works for {attending_count} people.")
+                            elif row['matched_tags'] != "General":
+                                st.info(f"It matches interest: '{row['matched_tags']}'")
+                            else:
+                                st.write("It's an available option to consider.")
                                 
                             if row['Description']:
                                 st.write(f"_{row['Description']}_")
