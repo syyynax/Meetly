@@ -12,10 +12,12 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Meetly", page_icon="👋", layout="wide")
 database.init_db()
 
+# --- SESSION STATE INITIALIZATION ---
 if 'ranked_results' not in st.session_state:
     st.session_state.ranked_results = None
 
-# --- NAVIGATION LOGIK ---
+# --- NAVIGATION LOGIC ---
+# If returning from Google Login, jump to Activity Planner
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Start"
 
@@ -125,12 +127,14 @@ elif page == "Activity Planner":
         st.warning("Please create profiles first.")
     else:
         today = datetime.now().date()
+        
         col1, col2 = st.columns(2)
         with col1:
             user_names = [u[0] for u in all_users_data]
             selected = st.multiselect("Who is planning?", user_names, default=user_names)
         
         with col2:
+            # Week Selection
             selected_date = st.date_input("Plan for which week?", value=today)
             start_of_week = selected_date - timedelta(days=selected_date.weekday())
             end_of_week = start_of_week + timedelta(days=6)
@@ -138,15 +142,14 @@ elif page == "Activity Planner":
 
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
-        # Session State for Search Results
-        if 'ranked_results' not in st.session_state:
-            st.session_state.ranked_results = None
-
+        # Analysis Button
         if st.button("🚀 Start Analysis") and selected:
+            # 1. Load Events
             events_df = recommender.load_local_events("events.csv") 
             if events_df.empty:
                  events_df = recommender.load_local_events("events.xlsx")
             
+            # 2. Filter by Selected Week
             if not events_df.empty:
                 events_df['Start'] = pd.to_datetime(events_df['Start'])
                 mask = (events_df['Start'].dt.date >= start_of_week) & (events_df['Start'].dt.date <= end_of_week)
@@ -154,6 +157,7 @@ elif page == "Activity Planner":
             else:
                 events_df_filtered = events_df
 
+            # 3. Calculate Recommendations
             st.session_state.ranked_results = recommender.find_best_slots_for_group(
                 events_df_filtered, 
                 user_busy_map, 
@@ -162,6 +166,7 @@ elif page == "Activity Planner":
                 min_attendees=1 
             )
 
+        # Display Results
         if st.session_state.ranked_results is not None:
             ranked_df = st.session_state.ranked_results
             
@@ -176,6 +181,7 @@ elif page == "Activity Planner":
                 total_group_size = len(selected)
 
                 for idx, row in ranked_df.head(10).iterrows():
+                    # Retrieve Scores safely
                     interest_score = row.get('final_interest_score', 0)
                     avail_score = row.get('availability_score', 0)
                     
@@ -200,10 +206,11 @@ elif page == "Activity Planner":
                             col
                         )
                         if saved:
-                            st.toast(f"Saved '{r['Title']}' permanently!")
+                            st.toast(f"Saved '{r['Title']}' permanently to Calendar!")
                         else:
                             st.toast(f"'{r['Title']}' is already saved.")
 
+                    # --- RENDER CARD ---
                     # 1. THE JACKPOT (Gold)
                     if is_avail_perfect and is_interest_perfect:
                         with st.container(border=True):
@@ -276,12 +283,15 @@ elif page == "Activity Planner":
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
                             c1, c2, c3 = st.columns([1, 1, 1]) 
+                            
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
+                            
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
+                            # Scores in % (Requested Design)
                             sc1, sc2 = c3.columns(2)
                             with sc1:
                                 st.write(f"💙 **Interest**")
@@ -315,6 +325,7 @@ elif page == "Group Calendar":
         all_users_db = database.get_all_users()
         all_user_names = [u[0] for u in all_users_db]
         
+        # 1. Fetch Google Events
         user_busy_map, stats = google_service.fetch_and_map_events(service, all_user_names)
         
         cal_events = []
@@ -322,6 +333,7 @@ elif page == "Group Calendar":
         
         colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"]
         
+        # Add Google Events to Calendar
         for i, (user_name, events) in enumerate(user_busy_map.items()):
             color = colors[i % len(colors)]
             for event in events:
@@ -340,9 +352,8 @@ elif page == "Group Calendar":
                     "person": user_name 
                 })
         
-        # HIER: Gespeicherte Events aus der DB laden
+        # 2. Fetch Saved Group Events from DB
         saved_events = database.get_saved_events()
-        
         if saved_events:
             cal_events.extend(saved_events)
             st.success(f"Loaded {len(saved_events)} saved group activities from Database!")
@@ -350,9 +361,40 @@ elif page == "Group Calendar":
             if st.button("Clear ALL saved activities"):
                 database.clear_saved_events()
                 st.rerun()
-        
+
         if cal_events:
-            calendar(events=cal_events, options={"initialView": "dayGridMonth", "height": 700})
+            # Render Calendar with CLICK CALLBACK
+            calendar_return = calendar(
+                events=cal_events, 
+                options={"initialView": "dayGridMonth", "height": 700},
+                callbacks=["eventClick"]
+            )
+            
+            # --- HANDLE EVENT CLICK ---
+            if calendar_return and "eventClick" in calendar_return:
+                clicked_event = calendar_return["eventClick"]["event"]
+                
+                st.markdown("### 📌 Event Details")
+                with st.container(border=True):
+                    st.markdown(f"## {clicked_event['title']}")
+                    
+                    c1, c2 = st.columns(2)
+                    
+                    start_str = clicked_event.get('start', '').replace('T', ' ')
+                    end_str = clicked_event.get('end', '').replace('T', ' ')
+                    
+                    c1.write(f"**Start:** {start_str}")
+                    c1.write(f"**End:** {end_str}")
+                    
+                    # Logic to identify person vs group event
+                    if ":" in clicked_event['title']:
+                        person = clicked_event['title'].split(":")[0]
+                        c2.write(f"**Person:** {person}")
+                    elif any(x in clicked_event['title'] for x in ["🎉", "✅", "💙", "📌"]):
+                         c2.write("**Type:** Saved Group Activity")
+                    else:
+                        c2.write("**Person:** Unknown")
+            
             st.markdown("---")
             visualization.show_visualizations(visualization_data)
         else:
