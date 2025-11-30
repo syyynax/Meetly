@@ -177,7 +177,7 @@ def show_activity_planner():
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
         # 4. Run Analysis
-        if st.button("🚀 Start Analysis") and selected:
+        if st.button("Search Events") and selected:
             # NEU: Limit zurücksetzen bei neuer Suche
             st.session_state.results_limit = 10
             
@@ -208,7 +208,7 @@ def show_activity_planner():
             ranked_df = st.session_state.ranked_results
             
             if not ranked_df.empty:
-                st.subheader("🎯 Top Suggestions")
+                st.subheader("🎯 Event Suggestions")
                 if st.button("Clear Results"):
                     st.session_state.ranked_results = None
                     st.rerun()
