@@ -122,16 +122,12 @@ elif page == "Activity Planner":
             if events_df.empty:
                  events_df = recommender.load_local_events("events.xlsx")
 
-            # --- DEBUG: Show loaded events ---
-            # with st.expander("🔍 Debug: All generated potential events (from Excel)", expanded=True):
-            #    st.dataframe(events_df) 
-
             st.session_state.ranked_results = recommender.find_best_slots_for_group(
                 events_df, 
                 user_busy_map, 
                 selected, 
                 user_prefs_dict,
-                min_attendees=1 # Auch wenn nur 1 Person kann, anzeigen!
+                min_attendees=1 
             )
 
         if st.session_state.ranked_results is not None:
@@ -205,21 +201,28 @@ elif page == "Activity Planner":
                             if missing_people:
                                 c2.caption(f"Busy: {', '.join(missing_people)}")
                             
-                            c3.metric("Match Score", f"{int(match_score*100)}%", "Very High")
+                            # Hier auch Progress Bar für Konsistenz
+                            c3.write(f"**Match Score:** {int(match_score*100)}%")
+                            c3.progress(match_score)
 
                     # 4. NORMAL / COMPROMISE
                     else:
                         with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl) - {int(match_score*100)}% Match"):
                             c1, c2, c3 = st.columns([1, 1, 1]) 
                             
+                            # Spalte 1
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
                             
+                            # Spalte 2
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            c3.metric("Match Score", f"{int(match_score*100)}%")
+                            # Spalte 3: Jetzt mit Progress Bar!
+                            c3.write(f"**Match Score:** {int(match_score*100)}%")
+                            c3.progress(match_score)
+                            
                             if row['matched_tags'] != "General":
                                 c3.caption(f"Matches: {row['matched_tags']}")
                             else:
