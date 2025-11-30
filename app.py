@@ -19,7 +19,7 @@ page = st.sidebar.radio("Go to", ["Start", "Profiles", "Activity Planner", "Grou
 # --- PAGE 0: START PAGE (NEW) ---
 if page == "Start":
     # Centered Title and Header for better aesthetics
-    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly!</h1> ✨", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly! ✨</h1> ", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>The App to finally bring your friends together.</h3>", unsafe_allow_html=True)
     
     st.markdown("---")
