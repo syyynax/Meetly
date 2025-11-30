@@ -75,12 +75,15 @@ def load_local_events(file_path="events.xlsx"):
                         if 'category' in row: cat = row['category']
                         elif 'kategorie' in row: cat = row['kategorie']
 
+                        raw_loc = row.get('location'
+
                         generated_events.append({
                             'Title': row['event_name'],
                             'Start': start_dt,
                             'End': end_dt,
                             'Category': cat, 
-                            'Description': f"Location: {row.get('location', 'Unknown')}"
+                            'Description': str(row.get('description', '')),
+                            'location': raw_loc
                         })
                     except Exception as e:
                         continue # Skip malformed rows
