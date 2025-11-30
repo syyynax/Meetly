@@ -117,3 +117,6 @@ def fetch_and_map_events(service, all_user_names):
     }
     
     return user_busy_map, stats
+    }
+    
+    return user_busy_map, stats
