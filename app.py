@@ -46,7 +46,7 @@ elif page == "Profiles":
         c1, c2, c3 = st.columns(3)
         prefs = []
         if c1.checkbox("Sport"): prefs.append("Sport")
-        if c2.checkbox("Culture"): prefs.append("Kultur")
+        if c2.checkbox("Culture"): prefs.append("Kultur") # DB values kept stable
         if c3.checkbox("Party"): prefs.append("Party")
         if c1.checkbox("Food"): prefs.append("Essen")
         if c2.checkbox("Education"): prefs.append("Education")
@@ -98,7 +98,7 @@ elif page == "Activity Planner":
         # Fetch Events
         user_busy_map, stats = google_service.fetch_and_map_events(service, all_user_names)
         
-        with st.expander("🔍 Diagnostic: Google Calendar Events", expanded=False):
+        with st.expander("🔍 Diagnostic: Events", expanded=False):
             st.write(f"Google found {stats['total_events']} events.")
             if stats['unassigned_titles']:
                 st.write(f"Ignored: {stats['unassigned_titles']}")
@@ -113,7 +113,7 @@ elif page == "Activity Planner":
         selected = st.multiselect("Who is planning?", user_names, default=user_names)
         user_prefs_dict = {u[0]: u[1] for u in all_users_data}
 
-        # Session State
+        # Session State for Results
         if 'ranked_results' not in st.session_state:
             st.session_state.ranked_results = None
 
@@ -127,7 +127,7 @@ elif page == "Activity Planner":
                 user_busy_map, 
                 selected, 
                 user_prefs_dict,
-                min_attendees=1 
+                min_attendees=1
             )
 
         if st.session_state.ranked_results is not None:
@@ -149,6 +149,8 @@ elif page == "Activity Planner":
                     is_all_attending = (attending_count == total_group_size)
                     is_high_match = (match_score > 0.6) 
                     
+                    # --- ZEITFORMATIERUNG ANPASSEN ---
+                    # Zeigt jetzt: "Monday, 14:00 - 16:00"
                     time_str = f"{row['Start'].strftime('%A, %H:%M')} - {row['End'].strftime('%H:%M')}"
 
                     missing_people = []
@@ -163,7 +165,7 @@ elif page == "Activity Planner":
                             st.info("✨ Everyone is free AND it matches your interests perfectly!")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{time_str}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             c1.caption(f"Category: {row['Category']}")
                             
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
@@ -178,7 +180,7 @@ elif page == "Activity Planner":
                             st.success("🕒 Everyone is free at this time.")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{time_str}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             
                             c2.write(f"**Interests Matched:** {row['matched_tags']}")
                             if match_score < 0.3:
@@ -195,39 +197,36 @@ elif page == "Activity Planner":
                             st.warning(f"⚠️ Only **{attending_count}/{total_group_size}** people are free, but they will love it!")
                             
                             c1, c2, c3 = st.columns([1, 2, 1])
-                            c1.write(f"📅 **{time_str}**")
+                            c1.write(f"📅 **{time_str}**") # Neue Zeit
                             
                             c2.write(f"**Who can go:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"Busy: {', '.join(missing_people)}")
                             
-                            # Hier auch Progress Bar für Konsistenz
-                            c3.write(f"**Match Score:** {int(match_score*100)}%")
-                            c3.progress(match_score)
+                            c3.metric("Match Score", f"{int(match_score*100)}%", "Very High")
 
-                    # 4. NORMAL / COMPROMISE
+                    # 4. NORMAL / COMPROMISE: Standard suggestion
                     else:
-                        with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl) - {int(match_score*100)}% Match"):
-                            c1, c2, c3 = st.columns([1, 1, 1]) 
+                        with st.expander(f"{row['Title']} ({attending_count}/{total_group_size} Ppl)"):
+                            c1, c2, c3 = st.columns([1, 1, 1]) # Jetzt 3 Spalten für mehr Infos
                             
-                            # Spalte 1
+                            # Spalte 1: Zeit & Kategorie
                             c1.write(f"📅 **{time_str}**")
                             c1.caption(f"Category: {row['Category']}")
                             
-                            # Spalte 2
+                            # Spalte 2: Teilnehmer & Fehlende
                             c2.write(f"**Attendees:** {row['attendees']}")
                             if missing_people:
                                 c2.caption(f"❌ Missing: {', '.join(missing_people)}")
                             
-                            # Spalte 3: Jetzt mit Progress Bar!
-                            c3.write(f"**Match Score:** {int(match_score*100)}%")
-                            c3.progress(match_score)
-                            
+                            # Spalte 3 (NEU): Match Score visualisieren!
+                            c3.metric("Match Score", f"{int(match_score*100)}%")
                             if row['matched_tags'] != "General":
                                 c3.caption(f"Matches: {row['matched_tags']}")
                             else:
                                 c3.caption("No specific interest match")
                             
+                            # Zusätzliche Infos unten drunter
                             st.write("**Why this option?**")
                             if attending_count > 1:
                                 st.info(f"It works for {attending_count} people.")
