@@ -45,10 +45,10 @@ def show_profiles_page():
         c1, c2, c3 = st.columns(3)
         prefs = []
         if c1.checkbox("Sport"): prefs.append("Sport")
-        if c2.checkbox("Culture"): prefs.append("Kultur")
+        if c2.checkbox("Culture"): prefs.append("Cultur")
         if c3.checkbox("Party"): prefs.append("Party")
-        if c1.checkbox("Food"): prefs.append("Essen")
-        if c2.checkbox("Education"): prefs.append("Education")
+        if c1.checkbox("Food"): prefs.append("Food")
+        if c2.checkbox("Music"): prefs.append("Music")
         if c3.checkbox("Outdoor"): prefs.append("Outdoor")
         
         submitted = st.form_submit_button("Save Profile")
