@@ -31,6 +31,7 @@ def init_db():
             category TEXT,
             attendees TEXT,
             match_score REAL
+            location TEXT
         )
     """)
     
@@ -98,7 +99,7 @@ def get_all_users():
 
 # --- EVENT FUNCTIONS (EXTENDED) ---
 
-def add_saved_event(title, start, end, color, category, attendees, match_score):
+def add_saved_event(title, start, end, color, category, attendees, match_score, location):
     """
     Saves a selected group event to the database, including all detailed metadata.
     """
@@ -111,9 +112,9 @@ def add_saved_event(title, start, end, color, category, attendees, match_score):
             return False # Event already exists, do nothing
             
         c.execute("""
-            INSERT INTO saved_events (title, start_time, end_time, color, category, attendees, match_score)
+            INSERT INTO saved_events (title, start_time, end_time, color, category, attendees, match_score, location)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (title, start, end, color, category, attendees, match_score))
+        """, (title, start, end, color, category, attendees, match_score, location))
         conn.commit()
         return True
     except Exception as e:
@@ -146,6 +147,7 @@ def get_saved_events():
                 "category": row['category'],
                 "attendees": row['attendees'],
                 "match_score": row['match_score']
+                "location": row['location']
             }
         }
         rows.append(event_dict)
