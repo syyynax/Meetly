@@ -232,11 +232,6 @@ def show_activity_planner():
                     avail_score = row.get('availability_score', 0)
                     location = row.get('location') 
 
-                    if pd.isna(raw_loc) or str(raw_loc).strip() == "":
-                        location = "TBD"
-                    else:
-                        location = str(raw_loc)
-
                     # Determine categories
                     is_avail_perfect = (avail_score >= 0.99)
                     is_interest_high = (interest_score > 0.6)
