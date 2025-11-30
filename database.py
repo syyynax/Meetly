@@ -17,14 +17,17 @@ def init_db():
         )
     """)
     
-    # 2. NEU: Gespeicherte Events Tabelle
+    # 2. Gespeicherte Events Tabelle (MIT DETAILS)
     c.execute("""
         CREATE TABLE IF NOT EXISTS saved_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
             start_time TEXT,
             end_time TEXT,
-            color TEXT
+            color TEXT,
+            category TEXT,
+            attendees TEXT,
+            match_score REAL
         )
     """)
     
@@ -80,22 +83,22 @@ def get_all_users():
     conn.close()
     return rows
 
-# --- NEUE FUNKTIONEN FÜR EVENTS ---
+# --- EVENT FUNKTIONEN (ERWEITERT) ---
 
-def add_saved_event(title, start, end, color):
-    """Speichert ein ausgewähltes Event in der DB."""
+def add_saved_event(title, start, end, color, category, attendees, match_score):
+    """Speichert ein ausgewähltes Event mit ALLEN Details."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        # Prüfen ob es schon existiert (einfacher Check auf Titel & Zeit)
+        # Prüfen ob schon da
         c.execute("SELECT id FROM saved_events WHERE title = ? AND start_time = ?", (title, start))
         if c.fetchone():
-            return False # Existiert schon
+            return False 
             
         c.execute("""
-            INSERT INTO saved_events (title, start_time, end_time, color)
-            VALUES (?, ?, ?, ?)
-        """, (title, start, end, color))
+            INSERT INTO saved_events (title, start_time, end_time, color, category, attendees, match_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (title, start, end, color, category, attendees, match_score))
         conn.commit()
         return True
     except Exception as e:
@@ -105,17 +108,36 @@ def add_saved_event(title, start, end, color):
         conn.close()
 
 def get_saved_events():
-    """Holt alle gespeicherten Events."""
+    """Holt alle gespeicherten Events inkl. Extended Props."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row # Damit wir Spaltennamen nutzen können
+    conn.row_factory = sqlite3.Row 
     c = conn.cursor()
-    c.execute("SELECT title, start_time as start, end_time as end, color as backgroundColor, color as borderColor FROM saved_events")
-    rows = [dict(row) for row in c.fetchall()]
+    
+    # Wir holen alle Spalten
+    c.execute("SELECT * FROM saved_events")
+    rows = []
+    for row in c.fetchall():
+        # Wir bauen das Dictionary so, wie FullCalendar es mag
+        # Zusatzinfos packen wir in 'extendedProps'
+        event_dict = {
+            "title": row['title'],
+            "start": row['start_time'],
+            "end": row['end_time'],
+            "backgroundColor": row['color'],
+            "borderColor": row['color'],
+            # Hier speichern wir die Detail-Infos für das Popup
+            "extendedProps": {
+                "category": row['category'],
+                "attendees": row['attendees'],
+                "match_score": row['match_score']
+            }
+        }
+        rows.append(event_dict)
+        
     conn.close()
     return rows
 
 def clear_saved_events():
-    """Löscht alle gespeicherten Events."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM saved_events")
