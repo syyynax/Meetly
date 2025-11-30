@@ -17,9 +17,22 @@ database.init_db()
 if 'selected_events' not in st.session_state:
     st.session_state.selected_events = []
 
+# --- NAVIGATION LOGIK (NEU) ---
+# Wir prüfen, ob wir von Google kommen (Code in URL) -> Dann ab zum Activity Planner
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "Start"
+
+if st.query_params.get("code"):
+    st.session_state.nav_page = "Activity Planner"
+
 # --- SIDEBAR ---
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Start", "Profiles", "Activity Planner", "Group Calendar"])
+# Wir nutzen den 'key' Parameter, um die Auswahl mit dem Session State zu verbinden
+page = st.sidebar.radio(
+    "Go to", 
+    ["Start", "Profiles", "Activity Planner", "Group Calendar"],
+    key="nav_page"
+)
 
 # --- PAGE 0: START PAGE ---
 if page == "Start":
