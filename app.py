@@ -14,7 +14,7 @@ database.init_db()
 st.sidebar.title("Navigation")
 # "Start" is now the first option (Default)
 # Translating UI to English as requested
-page = st.sidebar.radio("Go to", ["Start", "Home & Profile", "Activity Planner", "Group Calendar"])
+page = st.sidebar.radio("Go to", ["Start", "Profiles", "Activity Planner", "Group Calendar"])
 
 # --- PAGE 0: START PAGE (NEW) ---
 if page == "Start":
