@@ -33,15 +33,27 @@ def load_local_events(file_path="events.xlsx"):
                         s_val = row['start_time']
                         e_val = row['end_time']
 
+                        # Robuste Zeit-Konvertierung
                         if isinstance(s_val, time): s_time = s_val
                         else: s_time = pd.to_datetime(str(s_val)).time()
 
                         if isinstance(e_val, time): e_time = e_val
-                        else: e_time = pd.to_datetime(str(e_val)).time()
+                        else: 
+                            # Manchmal wird 00:00:00 als String oder NaT gelesen
+                            try:
+                                e_time = pd.to_datetime(str(e_val)).time()
+                            except:
+                                # Fallback: Wenn Ende fehlt oder 00:00 ist
+                                e_time = time(0, 0)
                         
                         start_dt = datetime.combine(current_date, s_time)
-                        if e_time < s_time:
-                            end_dt = datetime.combine(current_date + timedelta(days=1), e_time)
+                        
+                        # Nacht-Event Logik (z.B. 22:00 bis 02:00)
+                        if e_time <= s_time and e_time != time(0,0):
+                             end_dt = datetime.combine(current_date + timedelta(days=1), e_time)
+                        # Sonderfall: Ende genau um 00:00 Uhr (Mitternacht des nächsten Tages)
+                        elif e_time == time(0,0):
+                             end_dt = datetime.combine(current_date + timedelta(days=1), e_time)
                         else:
                             end_dt = datetime.combine(current_date, e_time)
 
@@ -56,7 +68,8 @@ def load_local_events(file_path="events.xlsx"):
                             'Category': cat, 
                             'Description': f"Ort: {row.get('location', 'Unbekannt')}"
                         })
-                    except Exception:
+                    except Exception as e:
+                        # print(f"Skipping row: {e}")
                         continue
                         
             return pd.DataFrame(generated_events)
@@ -79,9 +92,9 @@ def check_user_availability(event_start, event_end, user_busy_slots):
             return False 
     return True
 
-def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user_prefs, min_attendees=2):
+def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user_prefs, min_attendees=1):
     """
-    Findet Events und berechnet einen ehrlichen Gruppen-Score.
+    Findet Events und berechnet Details zu Übereinstimmungen.
     """
     if events_df.empty:
         return pd.DataFrame()
@@ -97,45 +110,31 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
             if check_user_availability(event['Start'], event['End'], busy_slots):
                 attendees.append(user)
         
+        # WICHTIG: Wir fügen das Event hinzu, wenn GENUG Leute Zeit haben (min_attendees)
+        # Standard ist min_attendees=1, damit wir sehen können, ob wenigstens einer kann.
         if len(attendees) >= min_attendees:
-            # 2. Interessen-Check pro Person
-            # Wir bauen einen Text aus Titel + Kategorie + Beschreibung
-            event_text = (str(event.get('Category', '')) + " " + str(event.get('Description', '')) + " " + str(event['Title'])).lower()
             
+            # 2. Welche Interessen passen? (Detail-Analyse)
             attendee_prefs_list = []
             matched_tags = set()
-            
-            # Zähler: Wie viele Leute finden das Event gut?
-            happy_users_count = 0
+            event_text = (str(event.get('Category', '')) + " " + str(event.get('Description', '')) + " " + str(event['Title'])).lower()
+            direct_hit = False 
             
             for attendee in attendees:
                 u_prefs = all_user_prefs.get(attendee, "")
                 attendee_prefs_list.append(u_prefs)
-                
-                user_is_happy = False
                 for pref in u_prefs.split(','):
                     clean_pref = pref.strip()
-                    # Wenn das Interesse im Event vorkommt
                     if clean_pref and clean_pref.lower() in event_text:
                         matched_tags.add(clean_pref)
-                        user_is_happy = True
-                
-                if user_is_happy:
-                    happy_users_count += 1
-
-            # Berechne die Quote: Wie viel Prozent der Gruppe sind glücklich?
-            # 2 von 2 Leuten = 1.0 (100%)
-            # 1 von 2 Leuten = 0.5 (50%)
-            group_happiness_score = happy_users_count / len(attendees) if attendees else 0
+                        direct_hit = True
 
             event_entry = event.copy()
             event_entry['attendees'] = ", ".join(attendees)
             event_entry['attendee_count'] = len(attendees)
             event_entry['group_prefs_text'] = " ".join(attendee_prefs_list)
             event_entry['matched_tags'] = ", ".join(matched_tags) if matched_tags else "General"
-            
-            # Wir speichern diesen "Ehrlichen Score" ab
-            event_entry['manual_score'] = group_happiness_score
+            event_entry['is_direct_hit'] = direct_hit 
             
             results.append(event_entry)
 
@@ -144,9 +143,7 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
 
     result_df = pd.DataFrame(results)
 
-    # 3. Machine Learning Score (TF-IDF) als "Feinschliff"
-    # Wir nutzen TF-IDF weiterhin, um auch unscharfe Treffer zu finden (z.B. ähnliche Wörter),
-    # aber wir priorisieren unseren harten Fakten-Check (manual_score).
+    # 3. Machine Learning Score (TF-IDF)
     result_df['event_features'] = (
         result_df['Title'].fillna('') + " " + 
         result_df['Category'].fillna('') + " " +  
@@ -156,27 +153,19 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
     try:
         tfidf = TfidfVectorizer(stop_words='english')
         if len(result_df) < 2:
-             # Wenn nur 1 Event da ist, nehmen wir unseren manuellen Score direkt
-             result_df['match_score'] = result_df['manual_score']
+             result_df['match_score'] = 1.0 if result_df.iloc[0]['is_direct_hit'] else 0.5
         else:
             tfidf_matrix = tfidf.fit_transform(result_df['event_features'])
             scores = []
             for idx, row in result_df.iterrows():
-                # ML Score berechnen
                 user_vector = tfidf.transform([row['group_prefs_text']])
                 sim = cosine_similarity(user_vector, tfidf_matrix[idx])
-                ml_score = sim[0][0]
                 
-                # --- INTELLIGENTE MISCHUNG ---
-                # Wenn wir einen klaren Keyword-Treffer haben (manual_score > 0),
-                # vertrauen wir diesem Score zu 100%.
-                # Wenn nicht (manual_score == 0), nutzen wir den ML-Score als Fallback 
-                # (vielleicht findet die KI Zusammenhänge, die wir übersehen haben).
-                
-                if row['manual_score'] > 0:
-                    final_score = row['manual_score']
+                raw_score = sim[0][0]
+                if row['is_direct_hit']:
+                    final_score = 1.0
                 else:
-                    final_score = ml_score
+                    final_score = raw_score
                 
                 scores.append(final_score)
                 
@@ -184,10 +173,9 @@ def find_best_slots_for_group(events_df, user_busy_map, selected_users, all_user
             
     except Exception as e:
         print(f"ML Fehler: {e}")
-        # Fallback auf unseren manuellen Score
-        result_df['match_score'] = result_df['manual_score']
+        result_df['match_score'] = 0.5
 
-    # Sortieren: Erst Score, dann Anzahl
+    # Sortieren: Zuerst Score, dann Anzahl
     result_df = result_df.sort_values(by=['match_score', 'attendee_count'], ascending=[False, False])
     
     return result_df
