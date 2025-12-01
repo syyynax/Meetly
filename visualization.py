@@ -94,7 +94,7 @@ def show_visualizations(events_list):
     """
     Main function to render the visualization section in the Streamlit app.
     """
-    st.markdown("### 📊 How busy is everyone?")
+    st.markdown("### How busy is everyone?")
     
     df = events_to_df(events_list)
 
