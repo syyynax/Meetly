@@ -14,7 +14,7 @@ def show_start_page():
     """
     Renders the Start Page with a welcome message and a short guide.
     """
-    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly!</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>✨ Welcome to Meetly! ✨</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center;'>The App to finally bring your friends together.</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
