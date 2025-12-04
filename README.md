@@ -1,7 +1,5 @@
 # Meetly
-# Meetly is our application that helps groups find the best time and event to meet by combining
-# user preferences, calendar availability (via Google Calendar) and a machine learning
-# recommandation engine. 
+# Meetly is our application that helps groups find the best time and event to meet by combining user preferences, calendar availability (via Google Calendar) and a machine learning recommandation engine. 
 
 # --- Setup of the App ---
 # To use the App we created a Google Account where we merged all of our personal calendars.
