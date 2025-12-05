@@ -29,9 +29,9 @@ def events_to_df(events_list):
     # --- Data cleaning and type converion ---
     # Ensure 'start' and 'end' columns are converted to datetime objects 
     if "start" in df.columns:
-        df["start"] = pd.to_datetime(df["start"])
+        df["start"] = pd.to_datetime(df["start"], utc=True)
     if "end" in df.columns:
-        df["end"] = pd.to_datetime(df["end"])
+        df["end"] = pd.to_datetime(df["end"], utc=True)
 
     # --- Feature engineering ---
     # Fallback: Use 'summary' as 'title' if 'title' is missing (Google API often uses 'summary')
