@@ -1,31 +1,3 @@
-# This file contains the core recommendation engine logic for Meetly
-# It processes local activity data and combines it with user availability (fetched
-# from Google Calendar) and user interest profiles (from the database) 
-# to calculate a weighted score for each potential group event. 
-# Key components:
-# - Data loading: Reads activity ideas from static files (e.g. events.xlsx)
-# - Interest matching: Calculates how well an activity's category matches the
-# selected group member's preferences.
-# - Availability check: Calculates the number of people available for a given time slot
-# by cross-referencing against the Google Calendar busy map. 
-# - Scoring and ranking: Combines interest and availabiltiy scores to rank the best 
-# potential time slots and activities for the entire group 
-#
-# --- MACHINE LEARNING & LOGIC EXPLANATION ---
-# We are not using an external AI service (no API calls).
-# Instead, we implemented a "Content-Based Recommender" algorithm ourselves.
-#
-# How it works:
-# 1. Feature Engineering: We combine the Title, Category, and Description of an event into a single text vector.
-# 2. TF-IDF Vectorization: We convert this text into mathematical vectors using TF-IDF (Term Frequency-Inverse Document Frequency).
-#    This gives more weight to rare, specific words (like "Football") and less to common filler words.
-# 3. Cosine Similarity: We calculate the angle (similarity) between the group's interest vector and the event's vector.
-#    A value of 1.0 means a perfect match, 0.0 means no similarity.
-# ----------------------------------------------------
-
-
-
-
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
