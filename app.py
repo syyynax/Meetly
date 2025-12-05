@@ -1,11 +1,3 @@
-# This is our main entry point for the Streamlit application. 
-# Key concepts:
-# - Core application setup
-# - Database initialization
-# - Management of the session state 
-# - Page navigation controlling based on user selections 
-
-
 import streamlit as st
 import database
 import views
