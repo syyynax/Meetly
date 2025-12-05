@@ -1,9 +1,3 @@
-# This file contains the logic necessary to authenticate the application with Google Calendar API 
-# using the OAuth 2.0 flow. 
-# It is critical to securely obtain the user's  permission to read their calendar data. 
-# The function manages credentials, handles redirection do Google's login page, processes the callback (code exchange) 
-# and creates the usable API service object.
-
 import streamlit as st
 import os
 from google_auth_oauthlib.flow import Flow
