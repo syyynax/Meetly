@@ -3,9 +3,8 @@
 
 # --- Setup of the App ---
 # To use the App we created a Google Account where we merged all of our personal calendars. That's how we ensured, that all our calendars are combined. This is the calendar we then integrated through an API into our App. 
-# Merged Google Account 
-#   username: csprojekt2025@gmail.com
-#   password: QWERTZ45KarTr
+# Merged Google Account: 
+# The Gmail account and password can be found in the attached Word document.
 
 
 
