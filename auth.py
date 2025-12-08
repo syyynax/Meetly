@@ -10,7 +10,7 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 # --- APP URL ---
 # This URL must match exactly what is configured in the Google Cloud Console.
 # It is the address where users are sent back after logging in and granting permission.
-REDIRECT_URI = "http://localhost:8501"
+REDIRECT_URI = "https://meetly-augzgdgermpiwnemrvgyuv.streamlit.app"
 
 def get_google_service():
     """
