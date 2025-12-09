@@ -7,10 +7,16 @@ from googleapiclient.discovery import build
 # We request read-only access to the user's calendar to ensure we don't accidentally modify events.
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
-# --- APP URL ---
-# This URL must match exactly what is configured in the Google Cloud Console.
-# It is the address where users are sent back after logging in and granting permission.
-REDIRECT_URI = "https://meetly-augzgdgermpiwnemrvgyuv.streamlit.app"
+# --- DYNAMIC APP URL (FIX) ---
+# Wir prüfen in den Secrets, ob wir 'production' (Live) oder 'development' (Lokal) sind.
+env_status = st.secrets.get("general", {}).get("environment", "development")
+
+if env_status == "production":
+    # Live auf dem Server
+    REDIRECT_URI = "https://meetly-augzgdgermpiwnemrvgyuv.streamlit.app"
+else:
+    # Lokal auf deinem Computer
+    REDIRECT_URI = "http://localhost:8501"
 
 def get_google_service():
     """
